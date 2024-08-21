@@ -1,7 +1,6 @@
 import { sendNotification, stripe } from "../../server.js";
 import { getAll, getOne, insert, update } from "../../utils/dbUtils.js";
 import logger from "../../utils/logger.js";
-import { handleNotification } from "../../utils/notificationHelper.js";
 import { paginate } from "../../utils/paginationUtils.js";
 import {
   sendBadRequestResponse,
@@ -11,6 +10,7 @@ import {
   sendSuccessResponse,
 } from "../../utils/responseUtils.js";
 import { retrieveCards } from "./utils.js";
+import pool from "../../config/index.js";
 
 // TODO: send the notification according to type CHAT | SERVICE
 
@@ -21,15 +21,14 @@ export const transferPayment = async (req, res) => {
 
   try {
     const user = await getOne("users", { id: user_id });
+    const user1 = await getOne("user_profiles", { user_id: user_id });
+
     if (!user) {
       return sendNotFoundResponse(res, "User not found");
     }
     const buddy = await getOne("users", { id: buddy_id });
-    if (!buddy ) {
-      return sendNotFoundResponse(
-        res,
-        "Buddy not found "
-      );
+    if (!buddy) {
+      return sendNotFoundResponse(res, "Buddy not found ");
     }
     if (!user.subscription_id) {
       return sendNotFoundResponse(
@@ -175,25 +174,20 @@ export const transferPayment = async (req, res) => {
     );
     // Notification content
     const title = `New Payment Received`;
-    const body = `You got a new payment from ${user.full_name}.`;
+    const body = `You got a new payment from ${user1.full_name}.`;
     const notification_type = "PAYMENT";
     const data = {
       sender_id: user_id,
       receiver_id: buddy_id,
       request_id: request_id,
-      type:notification_type,
+      type: notification_type,
     };
 
-    // stringify the data object 
+    // stringify the data object
     // const data = JSON.stringify(data1);
-    const device_token=buddy.device_token;
+    const device_token = buddy.device_token;
     console.log(device_token);
-    await sendNotification(
-      device_token,
-      title,
-      body,
-      data
-    );
+    await sendNotification(device_token, title, body, data);
     // await handleNotification(
     //   user_id,
     //   buddy_id,
@@ -232,6 +226,8 @@ export const releasePayment = async (req, res) => {
 
   try {
     const buddy = await getOne("users", { id: buddy_id });
+    const buddy_profile = await getOne("user_profiles", { user_id: buddy_id });
+
     const user = await getOne("users", { id: user_id });
     const request = await getOne("users_request", {
       id: request_id,
@@ -245,10 +241,7 @@ export const releasePayment = async (req, res) => {
     }
     const user_profile = await getOne("user_profiles", { user_id });
     if (!buddy) {
-      return sendNotFoundResponse(
-        res,
-        "Buddy not found "
-      );
+      return sendNotFoundResponse(res, "Buddy not found ");
     }
     const transactions = await getOne("transactions", {
       request_id,
@@ -320,19 +313,34 @@ export const releasePayment = async (req, res) => {
       },
       { id: request_id }
     );
+    console.log("HELLO");
+    console.log(application_fee);
+    console.log(buddy_transfer_amount);
 
-    await update(
-      "transactions",
-      { is_released: true },
-      {
-        request_id,
-        buddy_id,
-        user_id,
-        // admin_fee:application_fee,
-        // amount:buddy_transfer_amount,
+    // await update(
+    //   "transactions",
+    //   { is_released: true },
+    //   {
+    //     request_id,
+    //     buddy_id,
+    //     user_id,
+    //     admin_fee:parseInt(application_fee),
+    //     amount:parseInt(buddy_transfer_amount),
 
-      }
-    );
+    //   }
+    // );
+    // update the transaction with the admin fee and buddy amount
+
+    const updateTransaction = `UPDATE transactions SET admin_fee = $1, amount = $2 
+WHERE request_id = $3 AND buddy_id = $4 AND user_id = $5`;
+    const updateTransactionValues = [
+      application_fee,
+      buddy_transfer_amount,
+      request_id,
+      buddy_id,
+      user_id,
+    ];
+    await pool.query(updateTransaction, updateTransactionValues);
 
     // Notification content
     const title = `New Payment Released`;
@@ -346,38 +354,28 @@ export const releasePayment = async (req, res) => {
       type,
     };
 
-    // stringify the data object 
+    // stringify the data object
     // const data = JSON.stringify(data1);
-    const device_token=buddy.device_token;
+    const device_token = buddy.device_token;
     console.log(device_token);
-    await sendNotification(
-      device_token,
-      title,
-      body,
-      data
-    );
+    await sendNotification(device_token, title, body, data);
     // Notification content
     const title_2 = `Service Completed`;
-    const body_2 = `How was your experience with ${user_profile.full_name}? rate now!`;
+    const body_2 = `How was your experience with ${buddy_profile.full_name}? rate now!`;
     const type_2 = "SERVICES";
     // await handleNotification(buddy_id, user_id, user, title_2, body_2, type_2);
     const data1 = {
       receiver_id: user_id,
       sender_id: buddy_id,
       request_id: request_id,
-      type:type_2,
+      type: type_2,
     };
 
-    // stringify the data object 
+    // stringify the data object
     // const data = JSON.stringify(data1);
-    const device_token1=buddy.device_token;
+    const device_token1 = buddy.device_token;
     console.log(device_token1);
-    await sendNotification(
-      device_token1,
-      title_2,
-      body_2,
-      data1
-    );
+    await sendNotification(device_token1, title_2, body_2, data1);
     return sendSuccessResponse(
       res,
       result,
@@ -424,24 +422,19 @@ export const cancelPaymentRequest = async (req, res) => {
     //   title,
     //   body,
     //   type
-    // ); 
-     const data1 = {
+    // );
+    const data1 = {
       sender_id: user_id,
       receiver_id: requestExists.buddy_id,
       request_id: request_id,
-      type:type,
+      type: type,
     };
 
-    // stringify the data object 
+    // stringify the data object
     // const data = JSON.stringify(data1);
-    const device_token1=buddy.device_token;
+    const device_token1 = buddy.device_token;
     console.log(device_token1);
-    await sendNotification(
-      device_token1,
-      title,
-      body,
-      data1
-    );
+    await sendNotification(device_token1, title, body, data1);
     return sendSuccessResponse(
       res,
       result,
@@ -517,19 +510,14 @@ export const cancelPaymentActions = async (req, res) => {
         receiver_id: user_id,
         sender_id: buddy_id,
         request_id: request_id,
-        type:type,
+        type: type,
       };
-  
-      // stringify the data object 
+
+      // stringify the data object
       // const data = JSON.stringify(data1);
-      const device_token1=user.device_token;
+      const device_token1 = user.device_token;
       console.log(device_token1);
-      await sendNotification(
-        device_token1,
-        title,
-        body,
-        data1
-      );
+      await sendNotification(device_token1, title, body, data1);
       // await handleNotification(buddy_id, user_id, user, title, body, type);
       // Notification content
       const title_2 = `Service Completed`;
@@ -547,20 +535,15 @@ export const cancelPaymentActions = async (req, res) => {
         receiver_id: user_id,
         sender_id: buddy_id,
         request_id: request_id,
-        type:type_2,
+        type: type_2,
       };
-  
-      // stringify the data object 
+
+      // stringify the data object
       // const data = JSON.stringify(data1);
-      const device_token2=user.device_token;
+      const device_token2 = user.device_token;
       console.log(device_token2);
-      await sendNotification(
-        device_token2,
-        title_2,
-        body_2,
-        data2
-      );
-      
+      await sendNotification(device_token2, title_2, body_2, data2);
+
       await update(
         "users_request",
         {
@@ -584,18 +567,12 @@ export const cancelPaymentActions = async (req, res) => {
         request_id: request_id,
         type,
       };
-  
-      // stringify the data object 
+
+      // stringify the data object
       // const data = JSON.stringify(data1);
-      const device_token2=user.device_token;
+      const device_token2 = user.device_token;
       console.log(device_token2);
-      await sendNotification(
-        device_token2,
-        title,
-        body,
-        data2
-      );
-      
+      await sendNotification(device_token2, title, body, data2);
     }
 
     return sendSuccessResponse(
@@ -905,10 +882,7 @@ export const withdraw = async (req, res) => {
     const user = await getOne("users", { id: buddy_id });
     console.log(user);
     if (!user) {
-      return sendBadRequestResponse(
-        res,
-        "User not found "
-      );
+      return sendBadRequestResponse(res, "User not found ");
     }
     // const wallet = await getOne("wallet", { buddy_id });
     // console.log(wallet)

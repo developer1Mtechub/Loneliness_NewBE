@@ -54,6 +54,7 @@ export const updateReadStatus = async (req, res) => {
 
 export const getAll = async (req, res) => {
   const user_id = req.user.id;
+  // const user_id = 366; // Hard
   const { page = 1, limit = 20 } = req.query;
 
   const offset = (parseInt(page) - 1) * parseInt(limit);

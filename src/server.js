@@ -881,10 +881,10 @@ app.post("/execute-payment-request", async (req, res) => {
         };
         await insert("transactions", transactionData);
         // get user by user id
-        const user = await getOne("users", { id: user_id });
+        const user = await getOne("user_profiles", { user_id: user_id });
         // get buddy by buddy id
         const buddy = await getOne("users", { id: buddy_id });
-
+// new service request 
         const title = `New Service Request`;
         const body = `You have a new service request from ${user.full_name}.`;
         const type = "SERVICES";
