@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat App</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      h1 {
+        margin: 0;
+        padding: 10px;
+        background-color: #333;
+        color: white;
+        text-align: center;
+      }
+      .container {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      .contacts {
+        width: 200px;
+        flex: 0 0 200px;
+        height: 100%;
+        overflow-y: scroll;
+        background-color: #f5f5f5;
+        border-right: 1px solid #ccc;
+      }
+      .contact {
+        cursor: pointer;
+        padding: 15px;
+        border-bottom: 1px solid #ccc;
+        font-size: 16px;
+      }
+      .contact:hover {
+        background-color: #ddd;
+      }
+      .chat-box {
+        flex: 1;
+        height: 100%;
+        overflow-y: scroll;
+        padding: 10px;
+      }
+      .message {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 5px;
+        background-color: #f9f9f9;
+      }
+      .input-container {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+      }
+      input[type="text"] {
+        width: calc(100% - 80px);
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        margin-right: 10px;
+        font-size: 16px;
+      }
+      button {
+        padding: 15px 20px;
+        background-color: #333;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background-color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Chat App</h1>
+    <div class="container">
+      <div class="contacts" id="contacts"></div>
+      <div class="chat-box" id="chat-box"></div>
+    </div>
+    <div class="input-container">
+      <input type="text" id="message" placeholder="Type a message..." />
+      <button id="send">Send</button>
+    </div>
+    <div class="input-container">
+      <input type="text" id="contactId" placeholder="Add a contact..." />
+      <button id="addContact">Add Contact</button>
+    </div>
+
+    <script>
+      const socket = io("http://localhost:5000");
+
+      const userId = 175
+      socket.emit("registerUser", userId);
+
+      let currentContactId = null;
+
+      const contactsDiv = document.getElementById("contacts");
+      const chatBox = document.getElementById("chat-box");
+      const messageInput = document.getElementById("message");
+      const sendButton = document.getElementById("send");
+      const contactIdInput = document.getElementById("contactId");
+      const addContactButton = document.getElementById("addContact");
+      socket.on("userStatus", ({ userId, status }) => {
+        console.log(status);
+        const contacts = document.querySelectorAll(".contact");
+        contacts.forEach((contact) => {
+          if (contact.textContent === userId) {
+            contact.style.backgroundColor =
+              status === "online" ? "#00FF00" : "#f5f5f5";
+          }
+        });
+      });
+
+      socket.on("contacts", async (contacts) => {
+        console.log("contacts", contacts);
+        contactsDiv.innerHTML = "";
+        contacts.forEach((contact) => {
+          const contactDiv = document.createElement("div");
+          contactDiv.textContent = `${contact.fullName} (${contact.unreadCount})`; // Show unread count
+          contactDiv.classList.add("contact");
+          contactDiv.style.backgroundColor =
+            contact.status === "online" ? "#00FF00" : "#f5f5f5";
+
+          // Display last message and timestamp if available
+          if (contact.lastMessage) {
+            const lastMessageDiv = document.createElement("div");
+            lastMessageDiv.textContent = `${contact.lastMessage}`;
+            const timestampDiv = document.createElement("div");
+            timestampDiv.textContent = `${contact.lastMessageTimestamp}`;
+            contactDiv.appendChild(lastMessageDiv);
+            contactDiv.appendChild(timestampDiv);
+          }
+
+          contactDiv.addEventListener("click", () => {
+            currentContactId = contact.userId;
+            socket.emit("getMessages", { userId, contactId: contact.userId });
+            socket.emit("markMessagesAsRead", {
+              userId,
+              contactId: contact.userId,
+            });
+          });
+          contactsDiv.appendChild(contactDiv);
+        });
+      });
+
+      socket.on("messages", (data) => {
+        if (data.contactId === currentContactId) {
+          chatBox.innerHTML = "";
+          data.messages.forEach((message) => {
+            const msgDiv = document.createElement("div");
+            msgDiv.classList.add("message");
+            msgDiv.innerHTML = `<strong>${message.sender_id}</strong>: ${message.message} <small>${message.created_at}</small>`;
+            chatBox.appendChild(msgDiv);
+          });
+        }
+      });
+
+      socket.on("chat message", (data) => {
+        if (
+          data.sender_id === currentContactId ||
+          data.receiver_id === currentContactId
+        ) {
+          const msgDiv = document.createElement("div");
+          msgDiv.classList.add("message");
+          msgDiv.innerHTML = `<strong>${data.sender_id}</strong>: ${data.message} <small>${data.timestamp}</small>`;
+          chatBox.appendChild(msgDiv);
+          // Scroll to the bottom of the chat box to show the latest message
+          chatBox.scrollTop = chatBox.scrollHeight;
+          socket.emit("updateLastMessage", {
+            userId: data.sender_id,
+            contactId: data.receiver_id,
+          });
+        }
+      });
+
+            socket.on("error", (error) => {
+        alert(error.message);
+      });
+
+      sendButton.addEventListener("click", () => {
+        const message = messageInput.value;
+        if (currentContactId && message.trim()) {
+          const data = {
+            sender_id: userId,
+            receiver_id: currentContactId,
+            message,
+            image_url: "", // Add logic to handle image URLs if needed
+          };
+          socket.emit("chat message", data);
+          console.log("message has been sent", data);
+          messageInput.value = "";
+        } else {
+          alert("Select a contact and type a message.");
+        }
+      });
+
+      addContactButton.addEventListener("click", () => {
+        const contactId = contactIdInput.value;
+        socket.emit("addContact", { userId, contactId });
+        contactIdInput.value = "";
+      });
+
+      socket.on("prompt", (message) => {
+        alert(message);
+      });
+    </script>
+  </body>
+</html>
