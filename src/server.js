@@ -46,11 +46,10 @@ paypal.configure({
 import path from "path";
 
 // Set view engine to EJS
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
 // const serviceAccount = require('./firebase.json');
-const port = process.env.PORT || 3001;
-
+const port = 3013
 // export const stripe = new Stripe("sk_test_51OmriNHtA3SK3biQL8S0aKmV7f0lXuskZx1007UoWekU80nAwpXCtqZM63GOr3oaHr6ewNBlY1F9hL8oQ0K8SoxL00z86ycA77");
 export const stripe = new Stripe(
   "sk_test_51Ml3wJGui44lwdb4hcY6Nr91bXfxAT2KVFXMxiV6ridW3LCMcB6aoV9ZAQxL3kDjaBphiAoga8ms0zbUiQjbZgzd00DpMxrLNL"
@@ -128,10 +127,14 @@ export const sendNotification = async (token, title, body, data) => {
 };
 
 app.post("/send-notification", async (req, res) => {
-  const { title, body, imageUrl
-    // ,token 
-    } = req.body;
-  const token = "dzL362rUQMqI2hzY8Pu2tZ:APA91bHMGBFtoiHMQdNyQ0-StE2wmlc-2k8qGexlBXu942tQ1_jAXJwPrASPXrJqxFuPTCSIew9v04huvAmZKAB6OYPhcs9vs9On0hiIfVkVWkL7PiYbFBwfpcpf8Ywj7Rg4kr-NpWD5";
+  const {
+    title,
+    body,
+    imageUrl,
+    // ,token
+  } = req.body;
+  const token =
+    "fBTI2lPaRG617BTh-_XNwg:APA91bFvPGvMIhhmbi6rOKisbLATJ8nu0gQBQREae3ZH446GjwSqkdnFgJvrrR0HXjqCvjLjsr5UjPSMDZbJWxLjLbhgAKfcMkQJmsem5y2Wt4jSM-BlyRl1fLt1mAHYO3WHYl718hPZ";
   // const token = "cFMdmmlaj0gFrJSP-fwzoy:APA91bGe7ZPtXU0teXo5idct9LyDCI5ukO3OCnho1TO575cuPbtJGe9bPrDtOpioDpyVd2ZljQo0fV-zYlKZJZV6AwEPI-QISlQqdIS4vxUzd7tpAoaW0pfzOkKL8RIF0b_rh5HKdPQ2";
   const message = {
     notification: {
@@ -745,16 +748,15 @@ app.post("/pay", async (req, res) => {
     res.json({ error: true, message: error.message });
   }
 });
-app.get('/success', (req, res) => {
-  res.render('success'); // Render the success.ejs file
+app.get("/success", (req, res) => {
+  res.render("success"); // Render the success.ejs file
 });
-app.get('/error', (req, res) => {
-  res.render('error'); // Render the error.ejs file
+app.get("/error", (req, res) => {
+  res.render("error"); // Render the error.ejs file
 });
 // success chat paymenmt
 app.post("/execute-payment-chat", async (req, res) => {
-  const { paymentId, payerId,user_id,amount,buddy_id
-   } = req.body;
+  const { paymentId, payerId, user_id, amount, buddy_id } = req.body;
 
   try {
     // Obtain the access token again
@@ -778,14 +780,14 @@ app.post("/execute-payment-chat", async (req, res) => {
 
     console.log(payment);
     if (response.ok) {
-      // chat transaction 
+      // chat transaction
       let transactionData;
       transactionData = {
         user_id,
-        
+
         // request_id,
-        type:"CHAT",
-        method:"CARD",
+        type: "CHAT",
+        method: "CARD",
         amount: amount,
         buddy_id,
         // admin_fee: application_fee,
@@ -807,7 +809,7 @@ app.post("/execute-payment-chat", async (req, res) => {
         });
       }
 
-      // end 
+      // end
       res.json({ error: false, payment: payment });
     } else {
       res.json({ error: true, message: payment });
@@ -884,7 +886,7 @@ app.post("/execute-payment-request", async (req, res) => {
         const user = await getOne("user_profiles", { user_id: user_id });
         // get buddy by buddy id
         const buddy = await getOne("users", { id: buddy_id });
-// new service request 
+        // new service request
         const title = `New Service Request`;
         const body = `You have a new service request from ${user.full_name}.`;
         const type = "SERVICES";
